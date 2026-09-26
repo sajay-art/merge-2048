@@ -19,6 +19,7 @@
             padding: 0;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-touch-callout: none;
             touch-action: manipulation;
         }
 
@@ -32,6 +33,7 @@
             justify-content: center;
             min-height: 100vh;
             overflow: hidden;
+            touch-action: none;
         }
 
         .game-container {
@@ -104,11 +106,12 @@
             background: var(--accent-color);
             color: white;
             border: none;
-            padding: 12px 16px;
+            padding: 10px 16px;
             border-radius: 10px;
             font-size: 14px;
             font-weight: 700;
             cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
             box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
             -webkit-tap-highlight-color: transparent;
         }
@@ -117,8 +120,8 @@
             background: #2a2a32;
             color: #a29bfe;
             border: 1px solid #3a3a46;
-            width: 40px;
-            height: 40px;
+            width: 38px;
+            height: 38px;
             border-radius: 10px;
             font-size: 16px;
             font-weight: 800;
@@ -127,6 +130,10 @@
             justify-content: center;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active, .btn-icon:active {
+            transform: scale(0.95);
         }
 
         .canvas-wrapper {
@@ -144,6 +151,7 @@
             height: 100%;
             display: block;
             border-radius: 10px;
+            touch-action: none;
         }
 
         .modal {
@@ -152,25 +160,30 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(18, 18, 20, 0.96);
+            background: rgba(18, 18, 20, 0.95);
+            backdrop-filter: blur(8px);
             border-radius: 16px;
-            display: none;
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             gap: 12px;
             padding: 20px;
             box-sizing: border-box;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
             text-align: left;
-            z-index: 9999;
+            z-index: 100;
         }
 
         .modal.active {
-            display: flex !important;
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .modal h2 {
-            font-size: 22px;
+            font-size: 24px;
             color: #a29bfe;
             align-self: center;
             margin-bottom: 4px;
@@ -184,12 +197,13 @@
         }
 
         .modal ul li {
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
 
         .modal p {
             color: #dcdde1;
             font-size: 14px;
+            line-height: 1.5;
             text-align: center;
         }
 
@@ -221,8 +235,8 @@
     <div class="controls">
         <span class="instructions" id="status-text">Tap a tile to select it!</span>
         <div class="button-group">
-            <button class="btn-icon" id="info-btn" type="button">?</button>
-            <button class="btn" id="restart-btn" type="button">New Game</button>
+            <button class="btn-icon" id="info-btn" title="How to play">?</button>
+            <button class="btn" id="restart-btn">New Game</button>
         </div>
     </div>
 
@@ -238,7 +252,7 @@
                 <li><b>No Diagonal Jumps:</b> You cannot jump across tiles or move diagonally.</li>
                 <li><b>Merge Rules:</b> Tap matching nearby numbers (2+2, 4+4) to merge.</li>
             </ul>
-            <button class="btn" id="start-game-btn" type="button" style="margin-top: 8px; width: 100%;">I Understand - Play Now</button>
+            <button class="btn" id="start-game-btn" style="margin-top: 8px; width: 100%;">I Understand - Play Now</button>
         </div>
 
         <!-- Info Modal -->
@@ -250,7 +264,7 @@
                 <li>Tap an <b>adjacent matching tile</b> to merge them.</li>
                 <li>Diagonal moves are <b>not allowed</b>.</li>
             </ul>
-            <button class="btn" id="close-info-btn" type="button" style="margin-top: 8px; width: 100%;">Resume Game</button>
+            <button class="btn" id="close-info-btn" style="margin-top: 8px; width: 100%;">Resume Game</button>
         </div>
 
         <!-- Game Over Modal -->
@@ -258,14 +272,61 @@
             <h2 style="color: #ff7675;">Game Over!</h2>
             <p>No more valid adjacent moves remaining.</p>
             <p>Final Score: <span id="final-score" style="font-weight: 800; color: #a29bfe;">0</span></p>
-            <button class="btn" id="modal-restart-btn" type="button" style="margin-top: 10px; width: 100%;">Try Again</button>
+            <button class="btn" id="modal-restart-btn" style="margin-top: 10px; width: 100%;">Try Again</button>
         </div>
     </div>
 </div>
 
 <script>
-    // Pure memory score fallback (bypasses all origin storage security restrictions)
-    let memoryBestScore = 0;
+    class SoundEffects {
+        constructor() {
+            this.ctx = null;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) this.ctx = new AudioCtx();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+
+        playPop() {
+            this.init();
+            if (!this.ctx || this.ctx.state !== 'running') return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.08);
+        }
+
+        playMerge() {
+            this.init();
+            if (!this.ctx || this.ctx.state !== 'running') return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.15);
+        }
+    }
+
+    const sfx = new SoundEffects();
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -281,26 +342,30 @@
     const GRID_SIZE = 4;
     let grid = [];
     let score = 0;
+    let bestScore = 0;
+
+    try {
+        bestScore = parseInt(localStorage.getItem('merge_best_score') || '0', 10);
+    } catch(e) {
+        bestScore = 0;
+    }
+    bestEl.textContent = bestScore;
+
     let cellSize = 0;
     let gap = 8;
     let selectedCell = null;
     let isGameActive = false;
 
-    // Resizing with auto-fallback for local WebViews
     function resizeCanvas() {
-        try {
-            const rect = canvas.getBoundingClientRect();
-            const width = rect.width || 320;
-            const height = rect.height || 320;
-            const dpr = window.devicePixelRatio || 1;
-
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-            ctx.scale(dpr, dpr);
-            cellSize = (width - gap * (GRID_SIZE + 1)) / GRID_SIZE;
-            render();
-        } catch(e) {}
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        cellSize = (rect.width - gap * (GRID_SIZE + 1)) / GRID_SIZE;
+        render();
     }
+
+    window.addEventListener('resize', resizeCanvas);
 
     const TILE_COLORS = {
         2:    { bg: '#2ed573', text: '#ffffff' },
@@ -339,17 +404,21 @@
             const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
             grid[randomCell.r][randomCell.c] = {
                 value: Math.random() < 0.8 ? 2 : 4,
-                scale: 1
+                scale: 0.2
             };
+            sfx.playPop();
         }
     }
 
     function updateScore(amount) {
         score += amount;
         scoreEl.textContent = score;
-        if (score > memoryBestScore) {
-            memoryBestScore = score;
-            bestEl.textContent = memoryBestScore;
+        if (score > bestScore) {
+            bestScore = score;
+            bestEl.textContent = bestScore;
+            try {
+                localStorage.setItem('merge_best_score', bestScore);
+            } catch(e) {}
         }
     }
 
@@ -369,6 +438,7 @@
 
     function handleInput(clientX, clientY) {
         if (!isGameActive) return;
+        sfx.init();
 
         const clickedCell = getCellFromCoordinates(clientX, clientY);
         if (!clickedCell) return;
@@ -379,6 +449,7 @@
             if (grid[r][c]) {
                 selectedCell = clickedCell;
                 statusText.textContent = "Tap adjacent (nearby) space/tile!";
+                sfx.playPop();
             }
         } else {
             const { r: sr, c: sc } = selectedCell;
@@ -395,8 +466,10 @@
             if (isAdjacent) {
                 if (grid[r][c] && grid[r][c].value === grid[sr][sc].value) {
                     grid[r][c].value *= 2;
+                    grid[r][c].scale = 1.3;
                     grid[sr][sc] = null;
                     updateScore(grid[r][c].value);
+                    sfx.playMerge();
                     spawnRandomTile();
                     selectedCell = null;
                     statusText.textContent = "Merged! Tap another tile.";
@@ -411,11 +484,13 @@
                 } else {
                     selectedCell = clickedCell;
                     statusText.textContent = "Switched selection!";
+                    sfx.playPop();
                 }
             } else {
                 if (grid[r][c]) {
                     selectedCell = clickedCell;
                     statusText.textContent = "Selected new tile!";
+                    sfx.playPop();
                 } else {
                     statusText.textContent = "Can only move to NEARBY adjacent slots!";
                 }
@@ -424,17 +499,23 @@
         render();
     }
 
-    function processPointer(e) {
-        let x = e.clientX;
-        let y = e.clientY;
-        if (e.changedTouches && e.changedTouches.length > 0) {
-            x = e.changedTouches[0].clientX;
-            y = e.changedTouches[0].clientY;
+    let lastTouchTime = 0;
+
+    function onPointerOrTouch(e) {
+        if (e.type === 'touchstart') {
+            lastTouchTime = Date.now();
+            if (e.touches && e.touches.length > 0) {
+                e.preventDefault();
+                handleInput(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        } else if (e.type === 'pointerdown') {
+            if (Date.now() - lastTouchTime < 500) return;
+            handleInput(e.clientX, e.clientY);
         }
-        handleInput(x, y);
     }
 
-    canvas.addEventListener('click', processPointer);
+    canvas.addEventListener('touchstart', onPointerOrTouch, { passive: false });
+    canvas.addEventListener('pointerdown', onPointerOrTouch);
 
     function checkGameOver() {
         for (let r = 0; r < GRID_SIZE; r++) {
@@ -463,7 +544,7 @@
         ctx.fill();
 
         if (isSelected) {
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 5;
             ctx.strokeStyle = '#ffffff';
             ctx.stroke();
         }
@@ -471,9 +552,7 @@
 
     function render() {
         const rect = canvas.getBoundingClientRect();
-        const width = rect.width || 320;
-        const height = rect.height || 320;
-        ctx.clearRect(0, 0, width, height);
+        ctx.clearRect(0, 0, rect.width, rect.height);
 
         for (let r = 0; r < GRID_SIZE; r++) {
             for (let c = 0; c < GRID_SIZE; c++) {
@@ -489,65 +568,67 @@
                 if (tile) {
                     const x = gap + c * (cellSize + gap);
                     const y = gap + r * (cellSize + gap);
+
+                    if (tile.scale < 1) tile.scale += 0.1;
+                    if (tile.scale > 1) tile.scale -= 0.05;
+
                     const isSelected = selectedCell && selectedCell.r === r && selectedCell.c === c;
-                    drawTile(x, y, tile.value, isSelected);
+                    drawTile(x, y, tile.value, isSelected ? 1.08 : tile.scale, isSelected);
                 }
             }
         }
+
+        requestAnimationFrame(render);
     }
 
-    function drawTile(x, y, val, isSelected = false) {
+    function drawTile(x, y, val, scale = 1, isSelected = false) {
         const colors = TILE_COLORS[val] || { bg: '#6c5ce7', text: '#ffffff' };
-        drawRoundedRect(x, y, cellSize, cellSize, 8, colors.bg, isSelected);
+        
+        ctx.save();
+        ctx.translate(x + cellSize / 2, y + cellSize / 2);
+        ctx.scale(scale, scale);
+        
+        drawRoundedRect(-cellSize / 2, -cellSize / 2, cellSize, cellSize, 8, colors.bg, isSelected);
 
         ctx.fillStyle = colors.text;
-        ctx.font = `bold ${cellSize * 0.35}px sans-serif`;
+        ctx.font = `bold ${cellSize * 0.35}px system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(val, x + cellSize / 2, y + cellSize / 2 + 2);
+        ctx.fillText(val, 0, 2);
+        
+        ctx.restore();
     }
 
-    function bindButton(id, handler) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.onclick = function(e) {
-            if (e) e.preventDefault();
-            handler();
-        };
-    }
-
-    bindButton('start-game-btn', function() {
+    document.getElementById('start-game-btn').addEventListener('click', () => {
+        sfx.init();
         startModal.classList.remove('active');
         isGameActive = true;
         initGame();
     });
 
-    bindButton('info-btn', function() {
+    document.getElementById('info-btn').addEventListener('click', () => {
         infoModal.classList.add('active');
         isGameActive = false;
     });
 
-    bindButton('close-info-btn', function() {
+    document.getElementById('close-info-btn').addEventListener('click', () => {
         infoModal.classList.remove('active');
         isGameActive = true;
     });
 
-    bindButton('restart-btn', function() {
+    document.getElementById('restart-btn').addEventListener('click', () => {
+        sfx.init();
         isGameActive = true;
         initGame();
     });
 
-    bindButton('modal-restart-btn', function() {
+    document.getElementById('modal-restart-btn').addEventListener('click', () => {
+        sfx.init();
         isGameActive = true;
         initGame();
     });
 
-    window.onload = function() {
-        resizeCanvas();
-    };
-    window.onresize = function() {
-        resizeCanvas();
-    };
+    window.addEventListener('load', resizeCanvas);
 </script>
 </body>
 </html>
