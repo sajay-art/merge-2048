@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Merge Mastery - 2D Grid Puzzle</title>
+    <style>
+        :root {
+            --bg-color: #121214;
+            --card-bg: #1e1e24;
+            --accent-color: #6c5ce7;
+            --text-color: #ffffff;
+            --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            max-width: 440px;
+            padding: 20px;
+        }
+
+        header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .scores-container {
+            display: flex;
+            gap: 12px;
+        }
+
+        .score-box {
+            background: var(--card-bg);
+            padding: 8px 16px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 80px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .score-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #a0a0ab;
+            font-weight: 700;
+        }
+
+        .score-value {
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-icon {
+            background: #2a2a32;
+            color: #a29bfe;
+            border: 1px solid #3a3a46;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            padding: 10px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 10px;
+        }
+
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(18, 18, 20, 0.96);
+            border-radius: 16px;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: left;
+            z-index: 9999;
+        }
+
+        .modal.active {
+            display: flex !important;
+        }
+
+        .modal h2 {
+            font-size: 22px;
+            color: #a29bfe;
+            align-self: center;
+            margin-bottom: 4px;
+        }
+
+        .modal ul {
+            font-size: 13px;
+            color: #dcdde1;
+            line-height: 1.6;
+            padding-left: 20px;
+        }
+
+        .modal ul li {
+            margin-bottom: 6px;
+        }
+
+        .modal p {
+            color: #dcdde1;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .instructions {
+            font-size: 12px;
+            color: #a29bfe;
+            text-align: left;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <header>
+        <h1>MERGE 2048</h1>
+        <div class="scores-container">
+            <div class="score-box">
+                <div class="score-label">Score</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-box">
+                <div class="score-label">Best</div>
+                <div class="score-value" id="best">0</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="controls">
+        <span class="instructions" id="status-text">Tap a tile to select it!</span>
+        <div class="button-group">
+            <button class="btn-icon" id="info-btn" type="button">?</button>
+            <button class="btn" id="restart-btn" type="button">New Game</button>
+        </div>
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Start Modal -->
+        <div class="modal active" id="start-modal">
+            <h2>Game Rules & Manual</h2>
+            <ul>
+                <li><b>Select Tile:</b> Tap any tile to select it (a white border appears).</li>
+                <li><b>Nearby Moves Only:</b> Move or merge into <b>adjacent spaces (Up, Down, Left, Right)</b>.</li>
+                <li><b>No Diagonal Jumps:</b> You cannot jump across tiles or move diagonally.</li>
+                <li><b>Merge Rules:</b> Tap matching nearby numbers (2+2, 4+4) to merge.</li>
+            </ul>
+            <button class="btn" id="start-game-btn" type="button" style="margin-top: 8px; width: 100%;">I Understand - Play Now</button>
+        </div>
+
+        <!-- Info Modal -->
+        <div class="modal" id="info-modal">
+            <h2>How to Play</h2>
+            <ul>
+                <li>Tap a tile to highlight it with a white border.</li>
+                <li>Tap an empty <b>adjacent slot</b> to move there.</li>
+                <li>Tap an <b>adjacent matching tile</b> to merge them.</li>
+                <li>Diagonal moves are <b>not allowed</b>.</li>
+            </ul>
+            <button class="btn" id="close-info-btn" type="button" style="margin-top: 8px; width: 100%;">Resume Game</button>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div class="modal" id="game-over-modal">
+            <h2 style="color: #ff7675;">Game Over!</h2>
+            <p>No more valid adjacent moves remaining.</p>
+            <p>Final Score: <span id="final-score" style="font-weight: 800; color: #a29bfe;">0</span></p>
+            <button class="btn" id="modal-restart-btn" type="button" style="margin-top: 10px; width: 100%;">Try Again</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Pure memory score fallback (bypasses all origin storage security restrictions)
+    let memoryBestScore = 0;
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const finalScoreEl = document.getElementById('final-score');
+    const statusText = document.getElementById('status-text');
+    
+    const startModal = document.getElementById('start-modal');
+    const infoModal = document.getElementById('info-modal');
+    const gameOverModal = document.getElementById('game-over-modal');
+
+    const GRID_SIZE = 4;
+    let grid = [];
+    let score = 0;
+    let cellSize = 0;
+    let gap = 8;
+    let selectedCell = null;
+    let isGameActive = false;
+
+    // Resizing with auto-fallback for local WebViews
+    function resizeCanvas() {
+        try {
+            const rect = canvas.getBoundingClientRect();
+            const width = rect.width || 320;
+            const height = rect.height || 320;
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            cellSize = (width - gap * (GRID_SIZE + 1)) / GRID_SIZE;
+            render();
+        } catch(e) {}
+    }
+
+    const TILE_COLORS = {
+        2:    { bg: '#2ed573', text: '#ffffff' },
+        4:    { bg: '#1e90ff', text: '#ffffff' },
+        8:    { bg: '#3742fa', text: '#ffffff' },
+        16:   { bg: '#9b59b6', text: '#ffffff' },
+        32:   { bg: '#8e44ad', text: '#ffffff' },
+        64:   { bg: '#e17055', text: '#ffffff' },
+        128:  { bg: '#d63031', text: '#ffffff' },
+        256:  { bg: '#fdcb6e', text: '#2d3436' },
+        512:  { bg: '#eccc68', text: '#2d3436' },
+        1024: { bg: '#ff7f50', text: '#ffffff' },
+        2048: { bg: '#ff4757', text: '#ffffff' }
+    };
+
+    function initGame() {
+        grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+        score = 0;
+        selectedCell = null;
+        statusText.textContent = "Tap a tile to select it!";
+        updateScore(0);
+        gameOverModal.classList.remove('active');
+        spawnRandomTile();
+        spawnRandomTile();
+        resizeCanvas();
+    }
+
+    function spawnRandomTile() {
+        const emptyCells = [];
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (!grid[r][c]) emptyCells.push({ r, c });
+            }
+        }
+        if (emptyCells.length > 0) {
+            const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            grid[randomCell.r][randomCell.c] = {
+                value: Math.random() < 0.8 ? 2 : 4,
+                scale: 1
+            };
+        }
+    }
+
+    function updateScore(amount) {
+        score += amount;
+        scoreEl.textContent = score;
+        if (score > memoryBestScore) {
+            memoryBestScore = score;
+            bestEl.textContent = memoryBestScore;
+        }
+    }
+
+    function getCellFromCoordinates(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        const c = Math.floor((x - gap) / (cellSize + gap));
+        const r = Math.floor((y - gap) / (cellSize + gap));
+
+        if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+            return { r, c };
+        }
+        return null;
+    }
+
+    function handleInput(clientX, clientY) {
+        if (!isGameActive) return;
+
+        const clickedCell = getCellFromCoordinates(clientX, clientY);
+        if (!clickedCell) return;
+
+        const { r, c } = clickedCell;
+
+        if (!selectedCell) {
+            if (grid[r][c]) {
+                selectedCell = clickedCell;
+                statusText.textContent = "Tap adjacent (nearby) space/tile!";
+            }
+        } else {
+            const { r: sr, c: sc } = selectedCell;
+
+            if (sr === r && sc === c) {
+                selectedCell = null;
+                statusText.textContent = "Selection canceled. Tap a tile!";
+                render();
+                return;
+            }
+
+            const isAdjacent = Math.abs(sr - r) + Math.abs(sc - c) === 1;
+
+            if (isAdjacent) {
+                if (grid[r][c] && grid[r][c].value === grid[sr][sc].value) {
+                    grid[r][c].value *= 2;
+                    grid[sr][sc] = null;
+                    updateScore(grid[r][c].value);
+                    spawnRandomTile();
+                    selectedCell = null;
+                    statusText.textContent = "Merged! Tap another tile.";
+                    checkGameOver();
+                } else if (grid[r][c] === null) {
+                    grid[r][c] = grid[sr][sc];
+                    grid[sr][sc] = null;
+                    spawnRandomTile();
+                    selectedCell = null;
+                    statusText.textContent = "Moved! Tap another tile.";
+                    checkGameOver();
+                } else {
+                    selectedCell = clickedCell;
+                    statusText.textContent = "Switched selection!";
+                }
+            } else {
+                if (grid[r][c]) {
+                    selectedCell = clickedCell;
+                    statusText.textContent = "Selected new tile!";
+                } else {
+                    statusText.textContent = "Can only move to NEARBY adjacent slots!";
+                }
+            }
+        }
+        render();
+    }
+
+    function processPointer(e) {
+        let x = e.clientX;
+        let y = e.clientY;
+        if (e.changedTouches && e.changedTouches.length > 0) {
+            x = e.changedTouches[0].clientX;
+            y = e.changedTouches[0].clientY;
+        }
+        handleInput(x, y);
+    }
+
+    canvas.addEventListener('click', processPointer);
+
+    function checkGameOver() {
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (!grid[r][c]) return;
+                if (r > 0 && grid[r - 1][c].value === grid[r][c].value) return;
+                if (r < GRID_SIZE - 1 && grid[r + 1][c].value === grid[r][c].value) return;
+                if (c > 0 && grid[r][c - 1].value === grid[r][c].value) return;
+                if (c < GRID_SIZE - 1 && grid[r + 1][c].value === grid[r][c].value) return;
+            }
+        }
+        finalScoreEl.textContent = score;
+        gameOverModal.classList.add('active');
+        isGameActive = false;
+    }
+
+    function drawRoundedRect(x, y, w, h, radius, color, isSelected = false) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        if (isSelected) {
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+        }
+    }
+
+    function render() {
+        const rect = canvas.getBoundingClientRect();
+        const width = rect.width || 320;
+        const height = rect.height || 320;
+        ctx.clearRect(0, 0, width, height);
+
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                const x = gap + c * (cellSize + gap);
+                const y = gap + r * (cellSize + gap);
+                drawRoundedRect(x, y, cellSize, cellSize, 8, '#2a2a32');
+            }
+        }
+
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                const tile = grid[r][c];
+                if (tile) {
+                    const x = gap + c * (cellSize + gap);
+                    const y = gap + r * (cellSize + gap);
+                    const isSelected = selectedCell && selectedCell.r === r && selectedCell.c === c;
+                    drawTile(x, y, tile.value, isSelected);
+                }
+            }
+        }
+    }
+
+    function drawTile(x, y, val, isSelected = false) {
+        const colors = TILE_COLORS[val] || { bg: '#6c5ce7', text: '#ffffff' };
+        drawRoundedRect(x, y, cellSize, cellSize, 8, colors.bg, isSelected);
+
+        ctx.fillStyle = colors.text;
+        ctx.font = `bold ${cellSize * 0.35}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(val, x + cellSize / 2, y + cellSize / 2 + 2);
+    }
+
+    function bindButton(id, handler) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.onclick = function(e) {
+            if (e) e.preventDefault();
+            handler();
+        };
+    }
+
+    bindButton('start-game-btn', function() {
+        startModal.classList.remove('active');
+        isGameActive = true;
+        initGame();
+    });
+
+    bindButton('info-btn', function() {
+        infoModal.classList.add('active');
+        isGameActive = false;
+    });
+
+    bindButton('close-info-btn', function() {
+        infoModal.classList.remove('active');
+        isGameActive = true;
+    });
+
+    bindButton('restart-btn', function() {
+        isGameActive = true;
+        initGame();
+    });
+
+    bindButton('modal-restart-btn', function() {
+        isGameActive = true;
+        initGame();
+    });
+
+    window.onload = function() {
+        resizeCanvas();
+    };
+    window.onresize = function() {
+        resizeCanvas();
+    };
+</script>
+</body>
+</html>
